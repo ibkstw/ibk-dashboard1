@@ -499,7 +499,9 @@ async function loadFromFirestore(){
       });
       _setSyncStatus('✅ Senkronize', 'var(--green)');
     } else {
-      _setSyncStatus('☁️ Yeni hesap', 'var(--text-muted)');
+      // Firebase boş — localStoragedaki mevcut verileri otomatik push et
+      _setSyncStatus('⬆️ İlk yükleme...', 'var(--amber)');
+      syncToFirestore();
     }
   }catch(e){
     console.warn('Firebase load error:', e);
