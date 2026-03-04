@@ -2,8 +2,14 @@
 <!-- saved from url=(0053)file:///C:/Users/ilkek/Downloads/ibk_dashboard_1.html -->
 <html lang="tr"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Finans Dashboard — CFO Hibrit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="IBK Dashboard">
+<meta name="theme-color" content="#0a0b10">
+<title>IBK Dashboard</title>
+<link rel="manifest" id="pwaManifest">
 <link href="file:///C:/Users/ilkek/Downloads/finplanner%20real%20one_files/css2" rel="stylesheet">
 <style>
 :root{
@@ -35,7 +41,7 @@ body.light .theme-toggle::after{transform:translateX(20px);background:var(--ambe
 .theme-toggle-wrap{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);}
 
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);}
 .app{max-width:1200px;margin:0 auto;padding:20px;}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
 .header h1{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;color:#ffffff;}
@@ -263,15 +269,188 @@ body.light .header h1{color:#1a1d2e;}
 .inv-table tbody tr:hover td{background:var(--card2);}
 
 @media(max-width:768px){
-  .charts-row,.analysis-grid,.split-grid{grid-template-columns:1fr;}
-  .input-row,.invest-inputs{flex-direction:column;}
-  .input-group input,.input-group select,.invest-inputs .input-group input,.invest-inputs .input-group select{width:100%;}
-  .margin-inputs{flex-direction:column;}
-  .margin-inputs .input-group input{width:100%;}
-  .grouped-bar-area{padding-left:36px;}
+
+  /* ── GENEL ── */
+  .app{padding:12px;}
+
+  /* ── HEADER ── */
+  .header{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:16px;}
+  .header h1{font-size:20px;}
+  /* header üst satır: butonlar + tema toggle */
+  .header > div:nth-child(2){width:100%;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  .header > div:nth-child(2) > div:first-child{display:flex;gap:5px;flex:1;}
+  /* Export/Import/Yedekler butonlarını küçült — inline style'ı ezmek için !important */
+  .header > div:nth-child(2) > div:first-child button{
+    padding:6px 8px!important;font-size:11px!important;flex:1;min-width:0!important;
+  }
+  /* Tema toggle küçült */
+  .theme-toggle-wrap{font-size:11px;}
+  .theme-toggle{width:36px!important;height:20px!important;}
+  .theme-toggle::after{width:14px!important;height:14px!important;}
+
+  /* ── AY SEÇİCİ ── */
+  .month-picker-wrap{width:100%;}
+  .month-badge-btn{width:100%;text-align:center;padding:10px;}
+
+  /* ── ÖZET KARTLAR ── */
+  .summary-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .s-card{padding:12px;}
+  .s-card .value{font-size:16px;}
+  .s-card .label{font-size:9px;}
+
+  /* ── SPLIT GRID ── */
+  .split-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .split-card{padding:14px;}
+  .split-stat{font-size:12px;}
+
+  /* ── TAB BAR ── */
+  .tab-bar{
+    width:100%;overflow-x:auto;flex-wrap:nowrap;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;gap:2px;padding:3px;
+  }
+  .tab-bar::-webkit-scrollbar{display:none;}
+  .tab-btn{padding:8px 12px;font-size:12px;white-space:nowrap;flex-shrink:0;}
+
+  /* ── INPUT PANEL ── */
+  .input-panel{padding:14px;}
+  .input-panel h2{font-size:14px;margin-bottom:12px;}
+  .input-row{flex-direction:column;gap:10px;}
+  .input-group{width:100%;}
+  .input-group input,.input-group select{width:100%!important;}
+  .type-toggle,.scope-toggle{width:100%;}
+  .type-btn,.scope-btn{flex:1;text-align:center;}
+  .add-btn{width:100%;padding:12px;font-size:14px;}
+
+  /* ── CHARTS ── */
+  .charts-row{grid-template-columns:1fr;gap:10px;}
+  .chart-box{padding:14px;}
+  .chart-box h3{font-size:13px;}
+  .cat-bar-label{width:80px;font-size:11px;}
+  .cat-bar-amount{width:60px;font-size:11px;}
+  .donut-wrap{flex-direction:column;align-items:center;}
+  .donut-legend{width:100%;}
+
+  /* ── ANALİZ ── */
+  .analysis-grid{grid-template-columns:1fr 1fr;}
+  .analysis-card{padding:16px;}
+  .analysis-box .a-value{font-size:18px;}
+
+  /* ── KESİT KARŞILAŞTIRMA ── */
+  .compare-bar-left,.compare-bar-right{font-size:10px;}
+
+  /* ── TABLO KARTLAR ── */
+  .table-card{padding:14px;}
+  .table-card h3{font-size:14px;}
+  .m-table{font-size:12px;}
+  .m-table thead th{font-size:10px;padding:6px 6px;}
+  .m-table tbody td{padding:8px 6px;}
+
+  /* ── İŞLEM LİSTESİ ── */
+  .tx-row{padding:10px 12px;gap:8px;}
+  .tx-emoji{width:32px;height:32px;font-size:14px;flex-shrink:0;}
+  .tx-name{font-size:13px;}
+  .tx-cat{font-size:11px;}
+  .tx-amt{font-size:13px;font-weight:700;}
+  .tx-del{width:26px;height:26px;font-size:11px;}
+  .tx-scope{font-size:9px;padding:1px 5px;}
+
+  /* ── YATIRIM ── */
+  .invest-inputs{flex-direction:column;gap:10px;}
+  .invest-inputs .input-group input,
+  .invest-inputs .input-group select{width:100%!important;}
+  .invest-summary-grid{grid-template-columns:1fr 1fr;}
+  .inv-alloc-wrap{flex-direction:column;}
+  .inv-alloc-label{width:70px;font-size:11px;}
+
+  /* ── KAR MARJI ── */
+  .margin-inputs{flex-direction:column;gap:10px;}
+  .margin-inputs .input-group input{width:100%!important;}
+  .margin-result-grid{grid-template-columns:1fr 1fr;}
+
+  /* ── CASH FLOW ── */
+  .cf-months{grid-template-columns:1fr 1fr;}
+
+  /* ── AYLIK CHART ── */
+  .grouped-bar-area{padding-left:36px;height:200px;}
   .x-axis-label{padding-left:36px;}
+
+  /* ── ALACAKLAR TABLOSU ── */
+  .table-card table{min-width:600px;}
+
+  /* ── MODALLER ── */
+  #repeatModal > div,
+  #backupModal > div{width:95vw!important;padding:20px!important;}
+
+  /* ── SECTION TITLE ── */
+  .section-title{font-size:14px;margin:20px 0 10px;}
+}
+
+/* Çok küçük ekranlar (iPhone SE vs) */
+@media(max-width:375px){
+  .summary-grid{grid-template-columns:1fr 1fr;}
+  .tab-btn{padding:7px 10px;font-size:11px;}
+  .header h1{font-size:19px;}
 }
 </style>
+<script>
+/* ═══════════ PWA SETUP ═══════════ */
+(function(){
+  // Inject manifest dynamically (single-file PWA)
+  const manifest = {
+    name: "IBK Dashboard",
+    short_name: "IBK",
+    description: "Kişisel Finans Takip Paneli",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#0a0b10",
+    theme_color: "#0a0b10",
+    orientation: "portrait-primary",
+    icons: [
+      {
+        src: "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#14161e"/><text x="96" y="130" font-size="100" text-anchor="middle">💹</text></svg>'),
+        sizes: "192x192",
+        type: "image/svg+xml",
+        purpose: "any maskable"
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  document.getElementById('pwaManifest').href = url;
+
+  // Register Service Worker via blob (offline support)
+  if('serviceWorker' in navigator){
+    const swCode = `
+const CACHE = 'ibk-v1';
+self.addEventListener('install', e => {
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(clients.claim());
+});
+self.addEventListener('fetch', e => {
+  // Cache-first for same-origin, network-first for others
+  if(e.request.url.startsWith(self.location.origin)){
+    e.respondWith(
+      caches.open(CACHE).then(cache =>
+        cache.match(e.request).then(cached => {
+          const fetchPromise = fetch(e.request).then(response => {
+            cache.put(e.request, response.clone());
+            return response;
+          });
+          return cached || fetchPromise;
+        })
+      )
+    );
+  }
+});`;
+    const swBlob = new Blob([swCode], {type:'text/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl).catch(()=>{});
+  }
+})();
+</script>
 </head>
 <body>
 <div class="app">
@@ -1578,7 +1757,9 @@ function openRepeatModal(id){
   let tYear = origDate.getFullYear();
   let tMonth = origDate.getMonth() + 2;
   if(tMonth > 12){ tMonth = 1; tYear++; }
-  const targetMonthVal = tYear+'-'+(String(tMonth).padStart(2,'0'));
+  const lastDayOfTarget = new Date(tYear, tMonth, 0).getDate();
+  const targetDay = Math.min(origDate.getDate(), lastDayOfTarget);
+  const targetDateVal = tYear+'-'+String(tMonth).padStart(2,'0')+'-'+String(targetDay).padStart(2,'0');
   const isInc = tx.type === 'income';
   const m = CAT_META[tx.cat]||{emoji:'📦',color:'#9ca3af'};
   document.getElementById('repeatTxId').value = id;
@@ -1587,7 +1768,7 @@ function openRepeatModal(id){
   document.getElementById('repeatType').textContent = isInc ? '📈 Gelir' : '📉 Gider';
   document.getElementById('repeatType').style.color = isInc ? 'var(--green)' : 'var(--red)';
   document.getElementById('repeatAmount').value = tx.amount;
-  document.getElementById('repeatTargetMonth').value = targetMonthVal;
+  document.getElementById('repeatTargetDate').value = targetDateVal;
   document.getElementById('repeatModal').style.display = 'flex';
   setTimeout(()=>document.getElementById('repeatAmount').focus(),100);
 }
@@ -1600,20 +1781,28 @@ function confirmRepeat(){
   if(!tx){ closeRepeatModal(); return; }
   const newAmount = parseFloat(document.getElementById('repeatAmount').value);
   if(!newAmount || newAmount <= 0){ showToast('❌ Geçerli bir tutar girin'); return; }
-  const monthVal = document.getElementById('repeatTargetMonth').value;
-  if(!monthVal){ showToast('❌ Hedef ay seçin'); return; }
-  const origDate = new Date(tx.date);
-  const [tYear, tMonth] = monthVal.split('-').map(Number);
-  const lastDay = new Date(tYear, tMonth, 0).getDate();
-  const targetDay = Math.min(origDate.getDate(), lastDay);
-  const newDate = tYear + '-' + String(tMonth).padStart(2,'0') + '-' + String(targetDay).padStart(2,'0');
-  const newTx = { id: ++txCounter, desc: tx.desc, amount: newAmount, type: tx.type, cat: tx.cat, scope: tx.scope, date: newDate };
-  transactions.push(newTx);
-  saveAll();
-  render();
-  closeRepeatModal();
+  const dateVal = document.getElementById('repeatTargetDate').value;
+  if(!dateVal){ showToast('❌ Hedef tarih seçin'); return; }
+  const [tYear, tMonth] = dateVal.split('-').map(Number);
+  const isCurrentMonth = (tYear === activeYear && tMonth === activeMonth + 1);
   const m = CAT_META[tx.cat]||{emoji:'📦'};
-  showToast('🔁 ' + m.emoji + ' ' + tx.desc + ' → ' + newDate + ' tarihine eklendi!');
+  if(isCurrentMonth){
+    const newTx = { id: ++idCounter, desc: tx.desc, amount: newAmount, type: tx.type, cat: tx.cat, scope: tx.scope, date: dateVal };
+    transactions.push(newTx);
+    saveAll();
+    render();
+  } else {
+    try{
+      const targetKey = 'fin_tx_v2_' + tYear + '-' + String(tMonth).padStart(2,'0');
+      const existing = JSON.parse(localStorage.getItem(targetKey)||'[]');
+      const maxId = existing.reduce((mx,t)=>Math.max(mx,t.id||0), 0);
+      const newTx = { id: maxId + 1, desc: tx.desc, amount: newAmount, type: tx.type, cat: tx.cat, scope: tx.scope, date: dateVal };
+      existing.push(newTx);
+      localStorage.setItem(targetKey, JSON.stringify(existing));
+    }catch(e){ console.warn(e); }
+  }
+  closeRepeatModal();
+  showToast('🔁 ' + m.emoji + ' ' + tx.desc + ' → ' + dateVal + ' tarihine eklendi!');
 }
 
 /* ═══════════ MASTER RENDER ═══════════ */
@@ -2346,11 +2535,10 @@ render();
           onkeydown="if(event.key==='Enter') confirmRepeat()">
       </div>
       <div style="display:flex;flex-direction:column;gap:5px;">
-        <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Hedef Ay</label>
-        <input id="repeatTargetMonth" type="month"
+        <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Hedef Tarih</label>
+        <input id="repeatTargetDate" type="date"
           style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:10px;font-size:14px;font-family:inherit;outline:none;transition:border .2s;cursor:pointer;"
           onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
-        <span style="font-size:11px;color:var(--text-muted);">Aynı gün korunur (ay sonunu geçemez)</span>
       </div>
     </div>
     <!-- Buttons -->
