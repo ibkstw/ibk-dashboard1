@@ -511,14 +511,16 @@ async function loadFromFirestore(){
 
 // localStorage → Firestore (debounced 2s)
 function syncToFirestore(){
+  if(_applyingRemote) return; // remote'dan uygulama sırasında yazma
   clearTimeout(_syncTimer);
   _setSyncStatus('⏳ Kaydediliyor...', 'var(--amber)');
   _syncTimer = setTimeout(async ()=>{
+    if(_applyingRemote) return;
     try{
       const ts = Date.now();
       const payload = JSON.stringify(_getAllLocalData());
+      _lastRemoteTs = ts; // önce set et, snapshot geri gelince yoksasın
       await _DOC.set({ payload, updatedAt: ts });
-      _lastRemoteTs = ts;
       _setSyncStatus('✅ Senkronize', 'var(--green)');
     }catch(e){
       console.warn('Firebase sync error:', e);
@@ -528,20 +530,28 @@ function syncToFirestore(){
 }
 
 // Gerçek zamanlı dinleyici — başka cihazdan değişiklik gelince güncelle
+let _applyingRemote = false; // döngü engelleyici bayrak
+
 function startSyncListener(){
   if(_syncListenerActive) return;
   _syncListenerActive = true;
+  let _firstSnapshot = true; // ilk snapshot'ı yoksay (sayfa açılışı)
   _DOC.onSnapshot(doc=>{
+    // İlk tetiklenme her zaman sayfa açılışı — yoksay
+    if(_firstSnapshot){ _firstSnapshot = false; return; }
+    // Bizim yazdığımız değişiklik — yoksay
     if(!doc.exists || doc.metadata.hasPendingWrites) return;
     const remoteTs = doc.data().updatedAt || 0;
-    if(remoteTs <= _lastRemoteTs) return; // zaten bizim yazdığımız, yoksay
+    if(remoteTs <= _lastRemoteTs) return;
+    // Biz şu an remote'dan uyguluyorsak — yoksay
+    if(_applyingRemote) return;
     _lastRemoteTs = remoteTs;
+    _applyingRemote = true;
     try{
       const payload = JSON.parse(doc.data().payload || '{}');
       Object.keys(payload).forEach(k=>{
         try{ localStorage.setItem(k, typeof payload[k]==='string' ? payload[k] : JSON.stringify(payload[k])); }catch(e){}
       });
-      // Re-render mevcut ayı
       if(typeof loadAll==='function') loadAll();
       if(typeof loadReceivables==='function') loadReceivables();
       if(typeof render==='function') render();
@@ -549,6 +559,7 @@ function startSyncListener(){
       _setSyncStatus('🔄 Güncellendi', 'var(--blue)');
       showToast('🔄 Başka cihazdan güncelleme geldi!');
     }catch(e){ console.warn('Snapshot parse error:', e); }
+    finally{ setTimeout(()=>{ _applyingRemote = false; }, 3000); }
   }, err=>{ console.warn('Snapshot error:', err); });
 }
 </script>
