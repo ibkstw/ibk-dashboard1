@@ -451,6 +451,105 @@ self.addEventListener('fetch', e => {
   }
 })();
 </script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+/* ═══════════ FIREBASE SYNC ═══════════ */
+const _fbConfig = {
+  apiKey: "AIzaSyAuvxLbfJvUFDenRydhr33Qnq2nWbOEHW0",
+  authDomain: "ibk-dashboard.firebaseapp.com",
+  projectId: "ibk-dashboard",
+  storageBucket: "ibk-dashboard.firebasestorage.app",
+  messagingSenderId: "764108021695",
+  appId: "1:764108021695:web:9b177ad8ba4c186f714b0a"
+};
+firebase.initializeApp(_fbConfig);
+const _db = firebase.firestore();
+const _DOC = _db.collection('ibk_data').doc('user');
+
+let _syncTimer = null;
+let _lastRemoteTs = 0;
+let _syncListenerActive = false;
+
+function _getAllLocalData(){
+  const keys = [];
+  for(let i=0;i<localStorage.length;i++) keys.push(localStorage.key(i));
+  const data = {};
+  keys.forEach(k=>{ try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch(e){ data[k]=localStorage.getItem(k); } });
+  return data;
+}
+
+function _setSyncStatus(text, color){
+  const el = document.getElementById('syncStatus');
+  if(el){ el.textContent = text; el.style.color = color || 'var(--text-muted)'; }
+}
+
+// Firestore → localStorage → render
+async function loadFromFirestore(){
+  _setSyncStatus('☁️ Yükleniyor...', 'var(--blue)');
+  try{
+    const doc = await _DOC.get();
+    if(doc.exists){
+      const payload = JSON.parse(doc.data().payload || '{}');
+      const remoteTs = doc.data().updatedAt || 0;
+      _lastRemoteTs = remoteTs;
+      Object.keys(payload).forEach(k=>{
+        try{ localStorage.setItem(k, typeof payload[k]==='string' ? payload[k] : JSON.stringify(payload[k])); }catch(e){}
+      });
+      _setSyncStatus('✅ Senkronize', 'var(--green)');
+    } else {
+      _setSyncStatus('☁️ Yeni hesap', 'var(--text-muted)');
+    }
+  }catch(e){
+    console.warn('Firebase load error:', e);
+    _setSyncStatus('⚠️ Offline', 'var(--amber)');
+  }
+}
+
+// localStorage → Firestore (debounced 2s)
+function syncToFirestore(){
+  clearTimeout(_syncTimer);
+  _setSyncStatus('⏳ Kaydediliyor...', 'var(--amber)');
+  _syncTimer = setTimeout(async ()=>{
+    try{
+      const ts = Date.now();
+      const payload = JSON.stringify(_getAllLocalData());
+      await _DOC.set({ payload, updatedAt: ts });
+      _lastRemoteTs = ts;
+      _setSyncStatus('✅ Senkronize', 'var(--green)');
+    }catch(e){
+      console.warn('Firebase sync error:', e);
+      _setSyncStatus('⚠️ Sync hatası', 'var(--red)');
+    }
+  }, 2000);
+}
+
+// Gerçek zamanlı dinleyici — başka cihazdan değişiklik gelince güncelle
+function startSyncListener(){
+  if(_syncListenerActive) return;
+  _syncListenerActive = true;
+  _DOC.onSnapshot(doc=>{
+    if(!doc.exists || doc.metadata.hasPendingWrites) return;
+    const remoteTs = doc.data().updatedAt || 0;
+    if(remoteTs <= _lastRemoteTs) return; // zaten bizim yazdığımız, yoksay
+    _lastRemoteTs = remoteTs;
+    try{
+      const payload = JSON.parse(doc.data().payload || '{}');
+      Object.keys(payload).forEach(k=>{
+        try{ localStorage.setItem(k, typeof payload[k]==='string' ? payload[k] : JSON.stringify(payload[k])); }catch(e){}
+      });
+      // Re-render mevcut ayı
+      if(typeof loadAll==='function') loadAll();
+      if(typeof loadReceivables==='function') loadReceivables();
+      if(typeof render==='function') render();
+      if(typeof renderReceivables==='function') renderReceivables();
+      _setSyncStatus('🔄 Güncellendi', 'var(--blue)');
+      showToast('🔄 Başka cihazdan güncelleme geldi!');
+    }catch(e){ console.warn('Snapshot parse error:', e); }
+  }, err=>{ console.warn('Snapshot error:', err); });
+}
+</script>
 </head>
 <body>
 <div class="app">
@@ -465,6 +564,7 @@ self.addEventListener('fetch', e => {
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
       </div>
       <div class="theme-toggle-wrap">
+        <span id="syncStatus" style="font-size:11px;color:var(--text-muted);white-space:nowrap;">☁️ ...</span>
         <span id="themeIcon">🌙</span>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Tema değiştir"></button>
         <span id="themeLabel">Dark</span>
@@ -1341,6 +1441,7 @@ function saveAll(){
     localStorage.setItem(invKey(),  JSON.stringify(investments));
     localStorage.setItem(prodKey(), JSON.stringify(products));
   }catch(e){ console.warn('localStorage save error', e); }
+  if(typeof syncToFirestore==='function') syncToFirestore();
 }
 function loadAll(){
   transactions=[];investments=[];products=[];idCounter=0;invCounter=0;prodCounter=0;
@@ -1912,6 +2013,7 @@ function loadReceivables(){
 function saveReceivables(){
   localStorage.setItem(RC_STORAGE_KEY, JSON.stringify(receivables));
   localStorage.setItem(RC_HISTORY_KEY, JSON.stringify(rcHistory));
+  if(typeof syncToFirestore==='function') syncToFirestore();
 }
 
 function setEditMode(id){
@@ -2489,19 +2591,28 @@ function initTheme(){
 
 
 initTheme();
-loadAll();
 updateCatDropdown();
 document.getElementById('inpDate').value=now.toISOString().split('T')[0];
 document.getElementById('invDate').value=now.toISOString().split('T')[0];
 updateMonthBadge();
 
-// Receivables init (autosave + migration)
+// Önce localStorage'dan hızlıca yükle (offline fallback)
+loadAll();
 loadReceivables();
 loadReceivableDraft();
 bindReceivableAutoSave();
 renderReceivables();
-
 render();
+
+// Sonra Firebase'den sync et, fark varsa yeniden render
+(async ()=>{
+  await loadFromFirestore();
+  loadAll();
+  loadReceivables();
+  renderReceivables();
+  render();
+  startSyncListener(); // gerçek zamanlı dinleyiciyi başlat
+})();
 </script>
 
 
