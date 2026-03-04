@@ -1566,8 +1566,54 @@ function renderTransactions(){
   el.innerHTML=sorted.map(tx=>{
     const m=CAT_META[tx.cat]||{emoji:'📦',color:'#9ca3af'};const isInc=tx.type==='income';
     const scopeTag=tx.scope==='brand'?'<span class="tx-scope" style="background:var(--brand-bg);color:var(--brand)">🏷️ Marka</span>':'<span class="tx-scope" style="background:var(--blue-bg);color:var(--blue)">🧍 Kişisel</span>';
-    return '<div class="tx-row"><div class="tx-emoji" style="background:'+(isInc?'var(--green-bg)':'var(--red-bg)')+'">'+m.emoji+'</div><div class="tx-info"><div class="tx-name">'+tx.desc+' '+scopeTag+'</div><div class="tx-cat">'+tx.cat+' · '+tx.date+'</div></div><div class="tx-amt '+(isInc?'inc':'exp')+'">'+(isInc?'+':'-')+fmt(tx.amount)+'</div><button class="tx-del" onclick="deleteTx('+tx.id+')" title="Sil">✕</button></div>';
+    return '<div class="tx-row"><div class="tx-emoji" style="background:'+(isInc?'var(--green-bg)':'var(--red-bg)')+'">'+m.emoji+'</div><div class="tx-info"><div class="tx-name">'+tx.desc+' '+scopeTag+'</div><div class="tx-cat">'+tx.cat+' · '+tx.date+'</div></div><div class="tx-amt '+(isInc?'inc':'exp')+'">'+(isInc?'+':'-')+fmt(tx.amount)+'</div><button class="tx-del" onclick="openRepeatModal('+tx.id+')" title="Tekrarla" style="color:var(--blue);opacity:.7">🔁</button><button class="tx-del" onclick="deleteTx('+tx.id+')" title="Sil">✕</button></div>';
   }).join('');
+}
+
+/* ═══════════ REPEAT TRANSACTION ═══════════ */
+function openRepeatModal(id){
+  const tx = transactions.find(t=>t.id===id);
+  if(!tx) return;
+  const origDate = new Date(tx.date);
+  let tYear = origDate.getFullYear();
+  let tMonth = origDate.getMonth() + 2;
+  if(tMonth > 12){ tMonth = 1; tYear++; }
+  const targetMonthVal = tYear+'-'+(String(tMonth).padStart(2,'0'));
+  const isInc = tx.type === 'income';
+  const m = CAT_META[tx.cat]||{emoji:'📦',color:'#9ca3af'};
+  document.getElementById('repeatTxId').value = id;
+  document.getElementById('repeatDesc').textContent = m.emoji + ' ' + tx.desc;
+  document.getElementById('repeatCat').textContent = tx.cat + ' · ' + (tx.scope==='brand'?'🏷️ Marka':'🧍 Kişisel');
+  document.getElementById('repeatType').textContent = isInc ? '📈 Gelir' : '📉 Gider';
+  document.getElementById('repeatType').style.color = isInc ? 'var(--green)' : 'var(--red)';
+  document.getElementById('repeatAmount').value = tx.amount;
+  document.getElementById('repeatTargetMonth').value = targetMonthVal;
+  document.getElementById('repeatModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('repeatAmount').focus(),100);
+}
+function closeRepeatModal(){
+  document.getElementById('repeatModal').style.display = 'none';
+}
+function confirmRepeat(){
+  const id = parseInt(document.getElementById('repeatTxId').value);
+  const tx = transactions.find(t=>t.id===id);
+  if(!tx){ closeRepeatModal(); return; }
+  const newAmount = parseFloat(document.getElementById('repeatAmount').value);
+  if(!newAmount || newAmount <= 0){ showToast('❌ Geçerli bir tutar girin'); return; }
+  const monthVal = document.getElementById('repeatTargetMonth').value;
+  if(!monthVal){ showToast('❌ Hedef ay seçin'); return; }
+  const origDate = new Date(tx.date);
+  const [tYear, tMonth] = monthVal.split('-').map(Number);
+  const lastDay = new Date(tYear, tMonth, 0).getDate();
+  const targetDay = Math.min(origDate.getDate(), lastDay);
+  const newDate = tYear + '-' + String(tMonth).padStart(2,'0') + '-' + String(targetDay).padStart(2,'0');
+  const newTx = { id: ++txCounter, desc: tx.desc, amount: newAmount, type: tx.type, cat: tx.cat, scope: tx.scope, date: newDate };
+  transactions.push(newTx);
+  saveAll();
+  render();
+  closeRepeatModal();
+  const m = CAT_META[tx.cat]||{emoji:'📦'};
+  showToast('🔁 ' + m.emoji + ' ' + tx.desc + ' → ' + newDate + ' tarihine eklendi!');
 }
 
 /* ═══════════ MASTER RENDER ═══════════ */
@@ -2269,6 +2315,54 @@ renderReceivables();
 render();
 </script>
 
+
+<!-- Repeat Transaction Modal -->
+<div id="repeatModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9998;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:18px;padding:28px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <input type="hidden" id="repeatTxId">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px">🔁</span>
+        <h3 style="font-size:16px;font-weight:700;">İşlemi Tekrarla</h3>
+      </div>
+      <button onclick="closeRepeatModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;line-height:1;padding:4px;">✕</button>
+    </div>
+    <!-- Transaction info -->
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:20px;">
+      <div id="repeatDesc" style="font-size:15px;font-weight:700;margin-bottom:4px;"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:6px;">
+        <span id="repeatCat" style="font-size:12px;color:var(--text-muted);"></span>
+        <span id="repeatType" style="font-size:12px;font-weight:600;background:var(--bg);padding:2px 8px;border-radius:99px;border:1px solid var(--border);"></span>
+      </div>
+    </div>
+    <!-- Editable fields -->
+    <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Tutar (₺)</label>
+        <input id="repeatAmount" type="number" min="0" step="0.01"
+          style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:10px;font-size:15px;font-weight:700;font-family:inherit;outline:none;transition:border .2s;"
+          onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"
+          onkeydown="if(event.key==='Enter') confirmRepeat()">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Hedef Ay</label>
+        <input id="repeatTargetMonth" type="month"
+          style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px 14px;border-radius:10px;font-size:14px;font-family:inherit;outline:none;transition:border .2s;cursor:pointer;"
+          onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'">
+        <span style="font-size:11px;color:var(--text-muted);">Aynı gün korunur (ay sonunu geçemez)</span>
+      </div>
+    </div>
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeRepeatModal()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text-muted);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">İptal</button>
+      <button onclick="confirmRepeat()" style="flex:2;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#60a5fa,#e879f9);color:#fff;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 15px rgba(96,165,250,.3);transition:all .2s;"
+        onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+        🔁 İşlemi Ekle
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- Backup Modal -->
 <div id="backupModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
