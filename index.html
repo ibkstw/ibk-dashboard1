@@ -476,7 +476,11 @@ function _getAllLocalData(){
   const keys = [];
   for(let i=0;i<localStorage.length;i++) keys.push(localStorage.key(i));
   const data = {};
-  keys.forEach(k=>{ try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch(e){ data[k]=localStorage.getItem(k); } });
+  keys.forEach(k=>{
+    // ibk_backups çok büyük olabilir, Firebase'e yazma (5MB limit)
+    if(k === 'ibk_backups') return;
+    try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch(e){ data[k]=localStorage.getItem(k); }
+  });
   return data;
 }
 
@@ -494,7 +498,19 @@ async function loadFromFirestore(){
       const payload = JSON.parse(doc.data().payload || '{}');
       const remoteTs = doc.data().updatedAt || 0;
       _lastRemoteTs = remoteTs;
+
+      // Güvenlik: Firebase verisi localdan daha ESKİ ise üzerine yazma
+      // Local'deki fin verilerinin timestamp'ini kontrol et
+      const localTs = parseInt(localStorage.getItem('ibk_last_sync_ts') || '0');
+      if(remoteTs < localTs && localTs > 0){
+        // Local daha yeni — Firebase'i güncelle, localStorage'a dokunma
+        _setSyncStatus('⬆️ Local daha yeni, güncelleniyor...', 'var(--amber)');
+        syncToFirestore();
+        return;
+      }
+
       Object.keys(payload).forEach(k=>{
+        if(k === 'ibk_backups') return; // backup'ları restore etme
         try{ localStorage.setItem(k, typeof payload[k]==='string' ? payload[k] : JSON.stringify(payload[k])); }catch(e){}
       });
       _setSyncStatus('✅ Senkronize', 'var(--green)');
@@ -505,7 +521,7 @@ async function loadFromFirestore(){
     }
   }catch(e){
     console.warn('Firebase load error:', e);
-    _setSyncStatus('⚠️ Offline', 'var(--amber)');
+    _setSyncStatus('⚠️ Offline - veriler lokalden yüklendi', 'var(--amber)');
   }
 }
 
@@ -519,7 +535,15 @@ function syncToFirestore(){
     try{
       const ts = Date.now();
       const payload = JSON.stringify(_getAllLocalData());
-      _lastRemoteTs = ts; // önce set et, snapshot geri gelince yoksasın
+      _lastRemoteTs = ts;
+      localStorage.setItem('ibk_last_sync_ts', String(ts));
+      // Payload boyutunu kontrol et
+      const payloadSize = new Blob([payload]).size;
+      if(payloadSize > 900000){ // 900KB limit koy
+        _setSyncStatus('⚠️ Veri çok büyük!', 'var(--red)');
+        console.warn('Payload too large:', payloadSize);
+        return;
+      }
       await _DOC.set({ payload, updatedAt: ts });
       _setSyncStatus('✅ Senkronize', 'var(--green)');
     }catch(e){
