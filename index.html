@@ -528,6 +528,10 @@ async function loadFromFirestore(){
 // localStorage → Firestore (debounced 2s)
 function syncToFirestore(){
   if(_applyingRemote) return; // remote'dan uygulama sırasında yazma
+  // Hemen timestamp güncelle — F5'te Firebase eski veriyi ezmesin
+  const nowTs = Date.now();
+  _lastRemoteTs = nowTs;
+  localStorage.setItem('ibk_last_sync_ts', String(nowTs));
   clearTimeout(_syncTimer);
   _setSyncStatus('⏳ Kaydediliyor...', 'var(--amber)');
   _syncTimer = setTimeout(async ()=>{
